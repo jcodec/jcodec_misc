@@ -6,6 +6,9 @@ if [[ ! -d $ROOT ]]; then
 fi
 SCRIPT_DIR="$( dirname "${BASH_SOURCE[0]}" )"
 TARGET="$HOME/html"
+if [[ ! -d $TARGET ]]; then
+  mkdir $TARGET
+fi
 R="$RANDOM"
 DIR="$ROOT/jcodec_$R"
 OUT_DIR="$ROOT/out_$R"
