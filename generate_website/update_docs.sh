@@ -1,6 +1,10 @@
 #!/bin/bash
 
-ROOT="$HOME/scripts"
+ROOT="$HOME/scratch"
+if [[ ! -d $ROOT ]]; then
+  mkdir $ROOT
+fi
+SCRIPT_DIR="$( dirname "${BASH_SOURCE[0]}" )"
 TARGET="$HOME/html"
 R="$RANDOM"
 DIR="$ROOT/jcodec_$R"
@@ -10,7 +14,7 @@ git clone https://github.com/jcodec/jcodec.git $DIR
 for file in `find $DIR -name "*.md"`; do
   basename=$(basename $file)
   name=${basename%.*}
-  php $ROOT/to_html.php $file > $OUT_DIR/${name}.html
+  php $SCRIPT_DIR/to_html.php $file > $OUT_DIR/${name}.html
   echo ${name}
 done
 
