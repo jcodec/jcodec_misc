@@ -7,6 +7,11 @@ if (count($argv) < 2) {
 
 require ('parsedown/Parsedown.php');
 
+$sameLevel = array();
+if (count($argv > 2)) {
+    $sameLevel = array_diff(explode(",", $argv[2]), array("README.md"));
+}
+
 $Parsedown = new Parsedown();
 ?>
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -50,8 +55,29 @@ echo $Parsedown->text(file_get_contents($argv[1]));
         </div-->
       </div>
     </div>
-    <!--div class="links"><a href="./contrib.html">Contributors</a>&nbsp;|&nbsp;<a href="./lic.html">Licence</a></div>
-    </div-->
+<?php
+    $numItems = count($sameLevel);
+    if ($numItems > 0) {
+?>
+    <div class="links">
+<?php
+      $i = 0;
+      foreach($sameLevel as $page) {
+        $path_parts = pathinfo($page);
+?>
+      <a href="<?= $path_parts['filename'] ?>.html"><?= ucfirst(strtolower($path_parts['filename'])) ?></a>
+<?php
+        if ($i < $numItems - 1) { 
+?>
+      	&nbsp;|&nbsp;
+<?php 
+        }
+        $i++;
+      }
+    }
+?>
+    	</div>
+    </div>
   </body>
   <script>
     (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
