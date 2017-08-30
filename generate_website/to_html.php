@@ -24,13 +24,13 @@ $Parsedown = new Parsedown();
   <head>
     <title>JCodec - </title>
     <style type="text/css" media="all">
-      @import url("./css/site.css");
+      @import url("/css/site.css");
     </style>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   </head>
   <body>
     <div class="wrapper">
-      <div class="xright">            <a href="index.html">Home</a>
+      <div class="xright">            <a href="/index.html">Home</a>
         <a href="https://github.com/jcodec/jcodec" class="externalLink">Source code</a>
         <a href="https://repo.maven.apache.org/maven2/org/jcodec/">Downloads</a>
     </div>
@@ -41,7 +41,7 @@ echo $Parsedown->text(file_get_contents($argv[1]));
 ?>
       </div>
       <div class="right">
-        <img src="./images/jcodec.png" style="margin-top: 20px;"/>
+        <img src="/images/jcodec.png" style="margin-top: 20px;"/>
 <?php
     $numItems = count($docsLevel);
     if ($numItems > 0) {
