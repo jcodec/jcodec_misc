@@ -47,7 +47,7 @@ echo $Parsedown->text(file_get_contents($argv[1]));
     if ($numItems > 0) {
 ?>
         <div class="box">
-          <!--h5>Guides</h5-->
+          <h5>Topics</h5>
           <ul>
 <?php
       foreach($docsLevel as $page) {

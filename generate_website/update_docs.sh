@@ -15,7 +15,7 @@ fi
 
 DIR="$ROOT/jcodec_$R"
 OUT_DIR="$ROOT/out_$R"
-mkdir $OUT_DIR
+[[ -d $OUT_DIR ]] || mkdir $OUT_DIR
 
 if [[ -z $DEV || ! -d $DIR ]]; then
 	git clone https://github.com/jcodec/jcodec.git $DIR
@@ -24,10 +24,11 @@ fi
 SAME_LEVEL="$(cd $DIR; ls -dm *.md | tr -d ' ')"
 DOCS_LEVEL="$(cd $DIR/docs; ls -dm *.md | tr -d ' ')"
 
-for file in `find $DIR -name "*.md"`; do
-  basename=$(basename $file)
-  name=${basename%.*}
-  php $SCRIPT_DIR/to_html.php $file $SAME_LEVEL $DOCS_LEVEL > $OUT_DIR/${name}.html
+for file in `(cd $DIR; find . -name "*.md")`; do
+  name=${file%.*}
+  path="$(dirname $OUT_DIR/${name})"
+  [[ -d $path ]] || mkdir $path
+  php $SCRIPT_DIR/to_html.php "$DIR/$file" $SAME_LEVEL $DOCS_LEVEL > $OUT_DIR/${name}.html
   echo ${name}
 done
 php $SCRIPT_DIR/to_html.php "$DIR/LICENSE" $SAME_LEVEL $DOCS_LEVEL > $OUT_DIR/LICENSE.html
