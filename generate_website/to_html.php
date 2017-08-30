@@ -54,7 +54,7 @@ echo $Parsedown->text(file_get_contents($argv[1]));
         $path_parts = pathinfo($page);
 ?>
             <li class="none">
-              <a href="docs/<?= $path_parts['filename'] ?>.html"><?= ucfirst(str_replace('_', ' ', strtolower($path_parts['filename']))) ?></a>
+              <a href="/docs/<?= $path_parts['filename'] ?>.html"><?= ucfirst(str_replace('_', ' ', strtolower($path_parts['filename']))) ?></a>
             </li>
 <?php
       }
