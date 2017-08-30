@@ -22,13 +22,15 @@ if [[ -z $DEV || ! -d $DIR ]]; then
 fi
 
 SAME_LEVEL="$(cd $DIR; ls -dm *.md | tr -d ' ')"
+DOCS_LEVEL="$(cd $DIR/docs; ls -dm *.md | tr -d ' ')"
 
 for file in `find $DIR -name "*.md"`; do
   basename=$(basename $file)
   name=${basename%.*}
-  php $SCRIPT_DIR/to_html.php $file $SAME_LEVEL > $OUT_DIR/${name}.html
+  php $SCRIPT_DIR/to_html.php $file $SAME_LEVEL $DOCS_LEVEL > $OUT_DIR/${name}.html
   echo ${name}
 done
+php $SCRIPT_DIR/to_html.php "$DIR/LICENSE" $SAME_LEVEL $DOCS_LEVEL > $OUT_DIR/LICENSE.html
 
 cp -R $OUT_DIR/* $TARGET/
 mv $TARGET/README.html $TARGET/index.html

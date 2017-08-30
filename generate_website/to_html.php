@@ -11,6 +11,12 @@ $sameLevel = array();
 if (count($argv > 2)) {
     $sameLevel = array_diff(explode(",", $argv[2]), array("README.md"));
 }
+array_push($sameLevel, "LICENSE");
+
+$docsLevel = array();
+if (count($argv > 3)) {
+    $docsLevel = explode(",", $argv[3]);
+}
 
 $Parsedown = new Parsedown();
 ?>
@@ -36,23 +42,28 @@ echo $Parsedown->text(file_get_contents($argv[1]));
       </div>
       <div class="right">
         <img src="./images/jcodec.png" style="margin-top: 20px;"/>
-	<!--div class="box">
-          <h5>Guides</h5>
+<?php
+    $numItems = count($docsLevel);
+    if ($numItems > 0) {
+?>
+        <div class="box">
+          <!--h5>Guides</h5-->
           <ul>
+<?php
+      foreach($docsLevel as $page) {
+        $path_parts = pathinfo($page);
+?>
             <li class="none">
-              <a href="guide/movstitch.html">Stitching h264 movies</a>
+              <a href="docs/<?= $path_parts['filename'] ?>.html"><?= ucfirst(str_replace('_', ' ', strtolower($path_parts['filename']))) ?></a>
             </li>
-            <li class="none">
-              <a href="guide/avcmp4mux.html">Muxing h264 (avc) into mp4</a>
-            </li>
+<?php
+      }
+?>
           </ul>
-          <h5>H264</h5>
-          <ul>
-            <li class="none">
-              <a href="h264/index.html">Index</a>
-            </li>
-          </ul>
-        </div-->
+        </div>
+<?php 
+    }
+?>
       </div>
     </div>
 <?php
@@ -74,9 +85,11 @@ echo $Parsedown->text(file_get_contents($argv[1]));
         }
         $i++;
       }
-    }
 ?>
     	</div>
+<?php
+    }
+?>
     </div>
   </body>
   <script>
