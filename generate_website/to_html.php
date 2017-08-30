@@ -37,7 +37,9 @@ $Parsedown = new Parsedown();
     <div class="composite">
       <div class="left">
 <?php
-echo $Parsedown->text(file_get_contents($argv[1]));
+$contents = file_get_contents($argv[1]);
+$contents = preg_replace("/\[([^\[]+)\]\s*\(([^\)]+)\.md\s*\)/", "[$1]($2.html)", $contents);
+echo $Parsedown->text($contents);
 ?>
       </div>
       <div class="right">
