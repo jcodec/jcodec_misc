@@ -76,7 +76,7 @@ echo $Parsedown->text(file_get_contents($argv[1]));
       foreach($sameLevel as $page) {
         $path_parts = pathinfo($page);
 ?>
-      <a href="<?= $path_parts['filename'] ?>.html"><?= ucfirst(strtolower($path_parts['filename'])) ?></a>
+      <a href="/<?= $path_parts['filename'] ?>.html"><?= ucfirst(strtolower($path_parts['filename'])) ?></a>
 <?php
         if ($i < $numItems - 1) { 
 ?>
