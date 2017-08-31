@@ -13,6 +13,8 @@
 #include "vp9/common/vp9_pred_common.h"
 #include "vp9/common/vp9_seg_common.h"
 
+#define PRINTF(...) printf(__VA_ARGS__); fflush(stdout);
+
 int vp9_get_reference_mode_context(const VP9_COMMON *cm,
                                    const MACROBLOCKD *xd) {
   int ctx;
@@ -24,7 +26,11 @@ int vp9_get_reference_mode_context(const VP9_COMMON *cm,
   // The mode info data structure has a one element border above and to the
   // left of the entries corresponding to real macroblocks.
   // The prediction flags in these dummy entries are initialized to 0.
+  PRINTF("has_above: %d, has_left: %d\n", has_above, has_left);
   if (has_above && has_left) {  // both edges available
+    PRINTF("above_ref_0: %d, above_ref_1: %d, left_ref_0: %d, left_ref_1: %d\n",
+        above_mi->ref_frame[0], above_mi->ref_frame[1], left_mi->ref_frame[0],
+        left_mi->ref_frame[1]);
     if (!has_second_ref(above_mi) && !has_second_ref(left_mi))
       // neither edge uses comp pred (0/1)
       ctx = (above_mi->ref_frame[0] == cm->comp_fixed_ref) ^
@@ -41,6 +47,9 @@ int vp9_get_reference_mode_context(const VP9_COMMON *cm,
       ctx = 4;
   } else if (has_above || has_left) {  // one edge available
     const MODE_INFO *edge_mi = has_above ? above_mi : left_mi;
+
+    PRINTF("edge_ref_0: %d, edge_ref_1: %d\n", edge_mi->ref_frame[0],
+        edge_mi->ref_frame[1]);
 
     if (!has_second_ref(edge_mi))
       // edge does not use comp pred (0/1)
@@ -148,9 +157,14 @@ int vp9_get_pred_context_single_ref_p1(const MACROBLOCKD *xd) {
   // The mode info data structure has a one element border above and to the
   // left of the entries corresponding to real macroblocks.
   // The prediction flags in these dummy entries are initialized to 0.
+  PRINTF("has_above: %d, has_left: %d\n", has_above, has_left);
   if (has_above && has_left) {  // both edges available
     const int above_intra = !is_inter_block(above_mi);
     const int left_intra = !is_inter_block(left_mi);
+
+    PRINTF("above_ref_0: %d, above_ref_1: %d, left_ref_0: %d, left_ref_1: %d\n",
+        above_mi->ref_frame[0], above_mi->ref_frame[1], left_mi->ref_frame[0],
+        left_mi->ref_frame[1]);
 
     if (above_intra && left_intra) {  // intra/intra
       pred_context = 2;
@@ -187,6 +201,10 @@ int vp9_get_pred_context_single_ref_p1(const MACROBLOCKD *xd) {
     }
   } else if (has_above || has_left) {  // one edge available
     const MODE_INFO *edge_mi = has_above ? above_mi : left_mi;
+
+    PRINTF("edge_ref_0: %d, edge_ref_1: %d\n", edge_mi->ref_frame[0],
+        edge_mi->ref_frame[1]);
+
     if (!is_inter_block(edge_mi)) {  // intra
       pred_context = 2;
     } else {  // inter
@@ -211,11 +229,15 @@ int vp9_get_pred_context_single_ref_p2(const MACROBLOCKD *xd) {
   const int has_above = !!above_mi;
   const int has_left = !!left_mi;
 
+  PRINTF("has_above: %d, has_left: %d\n", has_above, has_left);
   // Note:
   // The mode info data structure has a one element border above and to the
   // left of the entries corresponding to real macroblocks.
   // The prediction flags in these dummy entries are initialized to 0.
   if (has_above && has_left) {  // both edges available
+    PRINTF("above_ref_0: %d, above_ref_1: %d, left_ref_0: %d, left_ref_1: %d\n",
+        above_mi->ref_frame[0], above_mi->ref_frame[1], left_mi->ref_frame[0],
+        left_mi->ref_frame[1]);
     const int above_intra = !is_inter_block(above_mi);
     const int left_intra = !is_inter_block(left_mi);
 
@@ -274,6 +296,9 @@ int vp9_get_pred_context_single_ref_p2(const MACROBLOCKD *xd) {
     }
   } else if (has_above || has_left) {  // one edge available
     const MODE_INFO *edge_mi = has_above ? above_mi : left_mi;
+
+    PRINTF("edge_ref_0: %d, edge_ref_1: %d\n", edge_mi->ref_frame[0],
+        edge_mi->ref_frame[1]);
 
     if (!is_inter_block(edge_mi) ||
         (edge_mi->ref_frame[0] == LAST_FRAME && !has_second_ref(edge_mi)))

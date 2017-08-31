@@ -57,6 +57,7 @@ static INLINE int vp9_get_skip_context(const MACROBLOCKD *xd) {
   const MODE_INFO *const left_mi = xd->left_mi;
   const int above_skip = (above_mi != NULL) ? above_mi->skip : 0;
   const int left_skip = (left_mi != NULL) ? left_mi->skip : 0;
+  printf("above_skip: %d, left_skip: %d\n", above_skip, left_skip);
   return above_skip + left_skip;
 }
 
@@ -76,6 +77,8 @@ static INLINE int get_pred_context_switchable_interp(const MACROBLOCKD *xd) {
   const MODE_INFO *const above_mi = xd->above_mi;
   const int above_type =
       above_mi ? above_mi->interp_filter : SWITCHABLE_FILTERS;
+  printf("has_above: %d, has_left: %d\n", !!above_mi, !!left_mi);
+  printf("above_type: %d, left_type: %d\n", above_type, left_type);
 
   if (left_type == above_type)
     return left_type;
@@ -99,6 +102,16 @@ static INLINE int get_intra_inter_context(const MACROBLOCKD *xd) {
   const MODE_INFO *const left_mi = xd->left_mi;
   const int has_above = !!above_mi;
   const int has_left = !!left_mi;
+
+	printf("has_above: %d, has_left: %d\n", has_above, has_left);
+	if (has_above) {
+		printf("above_ref_0: %d, above_ref_1: %d\n", above_mi->ref_frame[0],
+				above_mi->ref_frame[1]);
+	}
+	if (has_left) {
+		printf("left_ref_0: %d, left_ref_1: %d\n", left_mi->ref_frame[0],
+				left_mi->ref_frame[1]);
+	}
 
   if (has_above && has_left) {  // both edges available
     const int above_intra = !is_inter_block(above_mi);
@@ -159,6 +172,24 @@ static INLINE int get_tx_size_context(const MACROBLOCKD *xd) {
       (has_above && !above_mi->skip) ? (int)above_mi->tx_size : max_tx_size;
   int left_ctx =
       (has_left && !left_mi->skip) ? (int)left_mi->tx_size : max_tx_size;
+
+  printf("max_tx_size: %d, has_above: %d, has_left: %d\n", max_tx_size,
+		  has_above,
+		  has_left);
+  if (has_above) {
+	  printf("above_mi->skip: %d, above_mi->tx_size: %d\n",
+		  above_mi->skip,
+		  above_mi->tx_size
+	    );
+  }
+
+  if (has_left) {
+	  printf("left_mi->skip: %d, left_mi->tx_size: %d\n",
+		  left_mi->skip,
+		  left_mi->tx_size
+	  );
+  }
+
   if (!has_left) left_ctx = above_ctx;
 
   if (!has_above) above_ctx = left_ctx;

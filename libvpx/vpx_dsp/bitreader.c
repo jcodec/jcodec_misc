@@ -64,6 +64,7 @@ void vpx_reader_fill(vpx_reader *r) {
     nv = big_endian_values >> (BD_VALUE_SIZE - bits);
     count += bits;
     buffer += (bits >> 3);
+    printf("Reading bits: %d\n", bits);
     value = r->value | (nv << (shift & 0x7));
   } else {
     const int bits_over = (int)(shift + CHAR_BIT - (int)bits_left);

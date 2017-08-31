@@ -11,6 +11,8 @@
 #ifndef VP9_COMMON_VP9_BLOCKD_H_
 #define VP9_COMMON_VP9_BLOCKD_H_
 
+#include <stdio.h>
+
 #include "./vpx_config.h"
 
 #include "vpx_dsp/vpx_dsp_common.h"
@@ -260,6 +262,7 @@ static INLINE const vpx_prob *get_y_mode_probs(const MODE_INFO *mi,
                                                int block) {
   const PREDICTION_MODE above = vp9_above_block_mode(mi, above_mi, block);
   const PREDICTION_MODE left = vp9_left_block_mode(mi, left_mi, block);
+  printf("above_mode: %d, left_mode: %d\n", (int)above, (int)left);
   return vp9_kf_y_mode_prob[above][left];
 }
 

@@ -20,6 +20,8 @@
 
 #include "vp9/decoder/vp9_detokenize.h"
 
+#define PRINTF(...) printf(__VA_ARGS__); fflush(stdout);
+
 #define EOB_CONTEXT_NODE 0
 #define ZERO_CONTEXT_NODE 1
 #define ONE_CONTEXT_NODE 2
@@ -82,6 +84,7 @@ static int decode_coefs(const MACROBLOCKD *xd, PLANE_TYPE type,
   int band, c = 0;
   const vpx_prob(*coef_probs)[COEFF_CONTEXTS][UNCONSTRAINED_NODES] =
       fc->coef_probs[tx_size][type][ref];
+  PRINTF("<<< DECODE COEFS [plane=%d,tx_size=%d,ref=%d]\n", type, tx_size, ref);
   const vpx_prob *prob;
   unsigned int(*coef_counts)[COEFF_CONTEXTS][UNCONSTRAINED_NODES + 1];
   unsigned int(*eob_branch_count)[COEFF_CONTEXTS];
@@ -116,6 +119,7 @@ static int decode_coefs(const MACROBLOCKD *xd, PLANE_TYPE type,
 
   while (c < max_eob) {
     int val = -1;
+    int orig;
     band = *band_translate++;
     prob = coef_probs[band][ctx];
     if (counts) ++eob_branch_count[band][ctx];
@@ -177,20 +181,24 @@ static int decode_coefs(const MACROBLOCKD *xd, PLANE_TYPE type,
 #else
         v = (val * dqv) >> dq_shift;
 #endif
+        orig = val;
       } else {
         if (read_bool(r, p[1], &value, &count, &range)) {
           token_cache[scan[c]] = 3;
-          v = ((3 + read_bool(r, p[2], &value, &count, &range)) * dqv) >>
+          orig = 3 + read_bool(r, p[2], &value, &count, &range);
+          v = (orig * dqv) >>
               dq_shift;
         } else {
           token_cache[scan[c]] = 2;
           v = (2 * dqv) >> dq_shift;
+          orig = 2;
         }
       }
     } else {
       INCREMENT_COUNT(ONE_TOKEN);
       token_cache[scan[c]] = 1;
       v = dqv >> dq_shift;
+      orig = 1;
     }
 #if CONFIG_COEFFICIENT_RANGE_CHECKING
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -203,8 +211,10 @@ static int decode_coefs(const MACROBLOCKD *xd, PLANE_TYPE type,
 #else
     if (read_bool(r, 128, &value, &count, &range)) {
       dqcoeff[scan[c]] = -v;
+      PRINTF("coeff[%d]: %d \n", c, -orig);
     } else {
       dqcoeff[scan[c]] = v;
+      PRINTF("coeff[%d]: %d \n", c, orig);
     }
 #endif  // CONFIG_COEFFICIENT_RANGE_CHECKING
     ++c;
@@ -215,6 +225,7 @@ static int decode_coefs(const MACROBLOCKD *xd, PLANE_TYPE type,
   r->value = value;
   r->range = range;
   r->count = count;
+  PRINTF(">>> DECODE COEFS [%d]\n", c);
   return c;
 }
 
@@ -233,6 +244,7 @@ static void get_ctx_shift(MACROBLOCKD *xd, int *ctx_shift_a, int *ctx_shift_l,
 int vp9_decode_block_tokens(TileWorkerData *twd, int plane,
                             const scan_order *sc, int x, int y, TX_SIZE tx_size,
                             int seg_id) {
+  PRINTF("<<<DECODE TOKENS\n");
   vpx_reader *r = &twd->bit_reader;
   MACROBLOCKD *xd = &twd->xd;
   struct macroblockd_plane *const pd = &xd->plane[plane];
@@ -243,11 +255,13 @@ int vp9_decode_block_tokens(TileWorkerData *twd, int plane,
   int ctx;
   int ctx_shift_a = 0;
   int ctx_shift_l = 0;
+  PRINTF("x: %d, y: %d\n", x, y);
 
   switch (tx_size) {
     case TX_4X4:
       ctx = a[0] != 0;
       ctx += l[0] != 0;
+      PRINTF("a[0]: %d, l[0]: %d, ctx: %d\n", a[0], l[0], ctx);
       eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
                          dequant, ctx, sc->scan, sc->neighbors, r);
       a[0] = l[0] = (eob > 0);
@@ -256,6 +270,9 @@ int vp9_decode_block_tokens(TileWorkerData *twd, int plane,
       get_ctx_shift(xd, &ctx_shift_a, &ctx_shift_l, x, y, 1 << TX_8X8);
       ctx = !!*(const uint16_t *)a;
       ctx += !!*(const uint16_t *)l;
+
+      PRINTF("a[0]: %d, a[1]: %d, l[0]: %d, l[1]: %d, ctx: %d\n", a[0], a[1],
+				l[0], l[1], ctx);
       eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
                          dequant, ctx, sc->scan, sc->neighbors, r);
       *(uint16_t *)a = ((eob > 0) * 0x0101) >> ctx_shift_a;
@@ -265,6 +282,9 @@ int vp9_decode_block_tokens(TileWorkerData *twd, int plane,
       get_ctx_shift(xd, &ctx_shift_a, &ctx_shift_l, x, y, 1 << TX_16X16);
       ctx = !!*(const uint32_t *)a;
       ctx += !!*(const uint32_t *)l;
+      PRINTF(
+        "a[0]: %d, a[1]: %d, a[2]: %d, a[3]: %d, l[0]: %d, l[1]: %d, l[2]: %d, l[3]: %d, ctx: %d\n",
+        a[0], a[1], a[2], a[3], l[0], l[1], l[2], l[3], ctx);
       eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
                          dequant, ctx, sc->scan, sc->neighbors, r);
       *(uint32_t *)a = ((eob > 0) * 0x01010101) >> ctx_shift_a;
@@ -277,6 +297,11 @@ int vp9_decode_block_tokens(TileWorkerData *twd, int plane,
       // boundaries.
       ctx = !!*(const uint64_t *)a;
       ctx += !!*(const uint64_t *)l;
+      PRINTF(
+        "a[0]: %d, a[1]: %d, a[2]: %d, a[3]: %d, a[4]: %d, a[5]: %d, a[6]: %d, a[7]: %d,"
+            " l[0]: %d, l[1]: %d, l[2]: %d, l[3]: %d, l[4]: %d, l[5]: %d, l[6]: %d, l[7]: %d, ctx: %d\n",
+			a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], l[0], l[1],
+			l[2], l[3], l[4], l[5], l[6], l[7], ctx);
       eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
                          dequant, ctx, sc->scan, sc->neighbors, r);
       *(uint64_t *)a = ((eob > 0) * 0x0101010101010101ULL) >> ctx_shift_a;
@@ -288,5 +313,6 @@ int vp9_decode_block_tokens(TileWorkerData *twd, int plane,
       break;
   }
 
+  PRINTF(">>>DECODE TOKENS[%d]\n", eob);
   return eob;
 }

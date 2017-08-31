@@ -13,6 +13,7 @@
 
 #include <stddef.h>
 #include <limits.h>
+#include <stdio.h>
 
 #include "./vpx_config.h"
 #include "vpx_ports/mem.h"
@@ -70,6 +71,11 @@ static INLINE int vpx_reader_has_error(vpx_reader *r) {
   return r->count > BD_VALUE_SIZE && r->count < LOTS_OF_BITS;
 }
 
+static char hexd(int i) {
+	i = i & 0xf;
+	return (char)(i < 10 ? '0' + i : 'A' + (i - 10));
+}
+
 static INLINE int vpx_read(vpx_reader *r, int prob) {
   unsigned int bit = 0;
   BD_VALUE value;
@@ -78,10 +84,16 @@ static INLINE int vpx_read(vpx_reader *r, int prob) {
   unsigned int range;
   unsigned int split = (r->range * prob + (256 - prob)) >> CHAR_BIT;
 
+
   if (r->count < 0) vpx_reader_fill(r);
 
   value = r->value;
   count = r->count;
+
+	printf("range: %d, prob: %d, split: %d, value: %c%c%c%c%c%c, count: %d -> ",
+			r->range, prob, split, hexd(value >> 60), hexd(value >> 56),
+			hexd(value >> 52), hexd(value >> 48), hexd(value >> 44),
+			hexd(value >> 40), count);
 
   bigsplit = (BD_VALUE)split << (BD_VALUE_SIZE - CHAR_BIT);
 
@@ -89,7 +101,9 @@ static INLINE int vpx_read(vpx_reader *r, int prob) {
 
   if (value >= bigsplit) {
     range = r->range - split;
+    BD_VALUE old_val = value;
     value = value - bigsplit;
+    printf(" (%lu = %lu - %lu) ", value, old_val, bigsplit);
     bit = 1;
   }
 
@@ -98,10 +112,13 @@ static INLINE int vpx_read(vpx_reader *r, int prob) {
     range <<= shift;
     value <<= shift;
     count -= shift;
+    printf("shift: %d, value: %lu, bit: ", shift, value);
   }
   r->value = value;
   r->count = count;
   r->range = range;
+
+  printf("%d\n", bit);
 
   return bit;
 }

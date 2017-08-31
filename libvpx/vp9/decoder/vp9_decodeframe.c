@@ -43,6 +43,8 @@
 #include "vp9/decoder/vp9_decoder.h"
 #include "vp9/decoder/vp9_dsubexp.h"
 
+#define PRINTF(...) printf(__VA_ARGS__); fflush(stdout);
+
 #define MAX_VP9_HEADER_SIZE 80
 
 static int is_compound_reference_allowed(const VP9_COMMON *cm) {
@@ -82,6 +84,7 @@ static int decode_unsigned_max(struct vpx_read_bit_buffer *rb, int max) {
 
 static TX_MODE read_tx_mode(vpx_reader *r) {
   TX_MODE tx_mode = vpx_read_literal(r, 2);
+  PRINTF("tx_mode: %d\n", tx_mode);
   if (tx_mode == ALLOW_32X32) tx_mode += vpx_read_bit(r);
   return tx_mode;
 }
@@ -90,30 +93,40 @@ static void read_tx_mode_probs(struct tx_probs *tx_probs, vpx_reader *r) {
   int i, j;
 
   for (i = 0; i < TX_SIZE_CONTEXTS; ++i)
-    for (j = 0; j < TX_SIZES - 3; ++j)
+    for (j = 0; j < TX_SIZES - 3; ++j) {
       vp9_diff_update_prob(r, &tx_probs->p8x8[i][j]);
+      PRINTF("tx_probs->p8x8[%d][%d] = %d\n", i, j, tx_probs->p8x8[i][j]);
+    }
 
   for (i = 0; i < TX_SIZE_CONTEXTS; ++i)
-    for (j = 0; j < TX_SIZES - 2; ++j)
+    for (j = 0; j < TX_SIZES - 2; ++j) {
       vp9_diff_update_prob(r, &tx_probs->p16x16[i][j]);
+      PRINTF("tx_probs->p16x16[%d][%d] = %d\n", i, j, tx_probs->p16x16[i][j]);
+    }
 
   for (i = 0; i < TX_SIZE_CONTEXTS; ++i)
-    for (j = 0; j < TX_SIZES - 1; ++j)
+    for (j = 0; j < TX_SIZES - 1; ++j) {
       vp9_diff_update_prob(r, &tx_probs->p32x32[i][j]);
+      PRINTF("tx_probs->p32x32[%d][%d] = %d\n", i, j, tx_probs->p32x32[i][j]);
+    }
 }
 
 static void read_switchable_interp_probs(FRAME_CONTEXT *fc, vpx_reader *r) {
   int i, j;
   for (j = 0; j < SWITCHABLE_FILTER_CONTEXTS; ++j)
-    for (i = 0; i < SWITCHABLE_FILTERS - 1; ++i)
+    for (i = 0; i < SWITCHABLE_FILTERS - 1; ++i) {
       vp9_diff_update_prob(r, &fc->switchable_interp_prob[j][i]);
+      PRINTF("switchable_interp_prob[%d][%d]: %d\n", j, i, fc->switchable_interp_prob[j][i]);
+    }
 }
 
 static void read_inter_mode_probs(FRAME_CONTEXT *fc, vpx_reader *r) {
   int i, j;
   for (i = 0; i < INTER_MODE_CONTEXTS; ++i)
-    for (j = 0; j < INTER_MODES - 1; ++j)
+    for (j = 0; j < INTER_MODES - 1; ++j) {
       vp9_diff_update_prob(r, &fc->inter_mode_probs[i][j]);
+      PRINTF("inter_mode_probs[%d][%d]: %d\n", i, j, fc->inter_mode_probs[i][j]);
+    }
 }
 
 static REFERENCE_MODE read_frame_reference_mode(const VP9_COMMON *cm,
@@ -132,51 +145,60 @@ static void read_frame_reference_mode_probs(VP9_COMMON *cm, vpx_reader *r) {
   int i;
 
   if (cm->reference_mode == REFERENCE_MODE_SELECT)
-    for (i = 0; i < COMP_INTER_CONTEXTS; ++i)
+    for (i = 0; i < COMP_INTER_CONTEXTS; ++i) {
       vp9_diff_update_prob(r, &fc->comp_inter_prob[i]);
+      PRINTF("comp_inter_prob[%d]: %d\n", i, fc->comp_inter_prob[i]);
+    }
 
   if (cm->reference_mode != COMPOUND_REFERENCE)
     for (i = 0; i < REF_CONTEXTS; ++i) {
       vp9_diff_update_prob(r, &fc->single_ref_prob[i][0]);
       vp9_diff_update_prob(r, &fc->single_ref_prob[i][1]);
+
+      PRINTF("single_ref_prob[%d][0]: %d\n", i, fc->single_ref_prob[i][0]);
+      PRINTF("single_ref_prob[%d][1]: %d\n", i, fc->single_ref_prob[i][1]);
     }
 
   if (cm->reference_mode != SINGLE_REFERENCE)
-    for (i = 0; i < REF_CONTEXTS; ++i)
+    for (i = 0; i < REF_CONTEXTS; ++i) {
       vp9_diff_update_prob(r, &fc->comp_ref_prob[i]);
+      PRINTF("comp_ref_prob[%d]: %d\n", i, fc->comp_ref_prob[i]);
+    }
 }
 
-static void update_mv_probs(vpx_prob *p, int n, vpx_reader *r) {
+static void update_mv_probs(vpx_prob *p, int n, vpx_reader *r, char* prefix) {
   int i;
-  for (i = 0; i < n; ++i)
+  for (i = 0; i < n; ++i) {
     if (vpx_read(r, MV_UPDATE_PROB)) p[i] = (vpx_read_literal(r, 7) << 1) | 1;
+    PRINTF("%s_prop[%d]: %d\n", prefix, i, p[i]);
+  }
 }
 
 static void read_mv_probs(nmv_context *ctx, int allow_hp, vpx_reader *r) {
   int i, j;
 
-  update_mv_probs(ctx->joints, MV_JOINTS - 1, r);
+  update_mv_probs(ctx->joints, MV_JOINTS - 1, r, "mv_joints");
 
   for (i = 0; i < 2; ++i) {
     nmv_component *const comp_ctx = &ctx->comps[i];
-    update_mv_probs(&comp_ctx->sign, 1, r);
-    update_mv_probs(comp_ctx->classes, MV_CLASSES - 1, r);
-    update_mv_probs(comp_ctx->class0, CLASS0_SIZE - 1, r);
-    update_mv_probs(comp_ctx->bits, MV_OFFSET_BITS, r);
+    update_mv_probs(&comp_ctx->sign, 1, r, "mv_sign");
+    update_mv_probs(comp_ctx->classes, MV_CLASSES - 1, r, "mv_classes");
+    update_mv_probs(comp_ctx->class0, CLASS0_SIZE - 1, r, "mv_class0");
+    update_mv_probs(comp_ctx->bits, MV_OFFSET_BITS, r, "mv_bits");
   }
 
   for (i = 0; i < 2; ++i) {
     nmv_component *const comp_ctx = &ctx->comps[i];
     for (j = 0; j < CLASS0_SIZE; ++j)
-      update_mv_probs(comp_ctx->class0_fp[j], MV_FP_SIZE - 1, r);
-    update_mv_probs(comp_ctx->fp, 3, r);
+      update_mv_probs(comp_ctx->class0_fp[j], MV_FP_SIZE - 1, r, "mv_class0_fp");
+    update_mv_probs(comp_ctx->fp, 3, r, "mv_fp");
   }
 
   if (allow_hp) {
     for (i = 0; i < 2; ++i) {
       nmv_component *const comp_ctx = &ctx->comps[i];
-      update_mv_probs(&comp_ctx->class0_hp, 1, r);
-      update_mv_probs(&comp_ctx->hp, 1, r);
+      update_mv_probs(&comp_ctx->class0_hp, 1, r, "mv_class0_hp");
+      update_mv_probs(&comp_ctx->hp, 1, r, "mv_hp");
     }
   }
 }
@@ -755,6 +777,9 @@ static void decode_block(TileWorkerData *twd, VP9Decoder *const pbi, int mi_row,
   vpx_reader *r = &twd->bit_reader;
   MACROBLOCKD *const xd = &twd->xd;
 
+  PRINTF("\n\n\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+      "BLOCK %d, %d, %d, [%d, %d]\n", mi_col, mi_row, bsize, bwl, bhl);
+
   MODE_INFO *mi = set_offsets(cm, xd, bsize, mi_row, mi_col, bw, bh, x_mis,
                               y_mis, bwl, bhl);
 
@@ -842,6 +867,9 @@ static void decode_block(TileWorkerData *twd, VP9Decoder *const pbi, int mi_row,
   if (cm->lf.filter_level) {
     vp9_build_mask(cm, mi, mi_row, mi_col, bw, bh);
   }
+
+  PRINTF(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+      "BLOCK\n\n\n\n");
 }
 
 static INLINE int dec_partition_plane_context(TileWorkerData *twd, int mi_row,
@@ -851,7 +879,18 @@ static INLINE int dec_partition_plane_context(TileWorkerData *twd, int mi_row,
       twd->xd.left_seg_context + (mi_row & MI_MASK);
   int above = (*above_ctx >> bsl) & 1, left = (*left_ctx >> bsl) & 1;
 
+  PRINTF("PART_ABOVE_CTX:");for (int i = 0; i < mi_col + (1 << bsl); i++) {
+	  PRINTF("%d, ", twd->xd.above_seg_context[i]);}
+  PRINTF(
+    "\n");
+
+  PRINTF("PART_LEFT_CTX: %d, %d, %d, %d, %d, %d, %d, %d\n",
+    twd->xd.left_seg_context[0], twd->xd.left_seg_context[1],
+    twd->xd.left_seg_context[2], twd->xd.left_seg_context[3],
+    twd->xd.left_seg_context[4], twd->xd.left_seg_context[5],
+    twd->xd.left_seg_context[6], twd->xd.left_seg_context[7]);
   //  assert(bsl >= 0);
+  PRINTF("left: %d, above: %d\n", left, above);
 
   return (left * 2 + above) + bsl * PARTITION_PLOFFSET;
 }
@@ -873,7 +912,9 @@ static INLINE void dec_update_partition_context(TileWorkerData *twd, int mi_row,
 static PARTITION_TYPE read_partition(TileWorkerData *twd, int mi_row,
                                      int mi_col, int has_rows, int has_cols,
                                      int bsl) {
+  PRINTF("<<<PARTITION[%d, %d, %d]\n", mi_col, mi_row, bsl);
   const int ctx = dec_partition_plane_context(twd, mi_row, mi_col, bsl);
+  PRINTF("ctx=%d\n", ctx);
   const vpx_prob *const probs = twd->xd.partition_probs[ctx];
   FRAME_COUNTS *counts = twd->xd.counts;
   PARTITION_TYPE p;
@@ -881,14 +922,20 @@ static PARTITION_TYPE read_partition(TileWorkerData *twd, int mi_row,
 
   if (has_rows && has_cols)
     p = (PARTITION_TYPE)vpx_read_tree(r, vp9_partition_tree, probs);
-  else if (!has_rows && has_cols)
+  else if (!has_rows && has_cols) {
+    PRINTF("BOTTOM EDGE\n");
     p = vpx_read(r, probs[1]) ? PARTITION_SPLIT : PARTITION_HORZ;
-  else if (has_rows && !has_cols)
+  } else if (has_rows && !has_cols) {
+    PRINTF("RIGHT EDGE\n");
     p = vpx_read(r, probs[2]) ? PARTITION_SPLIT : PARTITION_VERT;
-  else
+  } else {
+    PRINTF("BOTTOM RIGHT EDGE\n");
     p = PARTITION_SPLIT;
+  }
 
   if (counts) ++counts->partition[ctx][p];
+
+  PRINTF(">>> PARTITION [%d]\n", p);
 
   return p;
 }
@@ -919,15 +966,18 @@ static void decode_partition(TileWorkerData *twd, VP9Decoder *const pbi,
   } else {
     switch (partition) {
       case PARTITION_NONE:
+    	    PRINTF("PARTITION_NONE\n");
         decode_block(twd, pbi, mi_row, mi_col, subsize, n4x4_l2, n4x4_l2);
         break;
       case PARTITION_HORZ:
+    	    PRINTF("PARTITION_HORZ\n");
         decode_block(twd, pbi, mi_row, mi_col, subsize, n4x4_l2, n8x8_l2);
         if (has_rows)
           decode_block(twd, pbi, mi_row + hbs, mi_col, subsize, n4x4_l2,
                        n8x8_l2);
         break;
       case PARTITION_VERT:
+    	    PRINTF("PARTITION_VERT\n");
         decode_block(twd, pbi, mi_row, mi_col, subsize, n8x8_l2, n4x4_l2);
         if (has_cols)
           decode_block(twd, pbi, mi_row, mi_col + hbs, subsize, n8x8_l2,
@@ -976,15 +1026,29 @@ static void read_coef_probs_common(vp9_coeff_probs_model *coef_probs,
       for (j = 0; j < REF_TYPES; ++j)
         for (k = 0; k < COEF_BANDS; ++k)
           for (l = 0; l < BAND_COEFF_CONTEXTS(k); ++l)
-            for (m = 0; m < UNCONSTRAINED_NODES; ++m)
+            for (m = 0; m < UNCONSTRAINED_NODES; ++m) {
               vp9_diff_update_prob(r, &coef_probs[i][j][k][l][m]);
+            }
 }
 
 static void read_coef_probs(FRAME_CONTEXT *fc, TX_MODE tx_mode, vpx_reader *r) {
   const TX_SIZE max_tx_size = tx_mode_to_biggest_tx_size[tx_mode];
   TX_SIZE tx_size;
-  for (tx_size = TX_4X4; tx_size <= max_tx_size; ++tx_size)
+  for (tx_size = TX_4X4; tx_size <= max_tx_size; ++tx_size) {
+    PRINTF("TX SIZE %d ===========\n", tx_size);
+    int i, j, k, l, m;
+    for (i = 0; i < PLANE_TYPES; ++i) {
+      for (j = 0; j < REF_TYPES; ++j)
+        for (k = 0; k < COEF_BANDS; ++k)
+          for (l = 0; l < BAND_COEFF_CONTEXTS(k); ++l)
+            for (m = 0; m < UNCONSTRAINED_NODES; ++m) {
+              PRINTF("%d, ", fc->coef_probs[tx_size][i][j][k][l][m]);
+            }
+    }
+
+    PRINTF("\n ===========\n");
     read_coef_probs_common(fc->coef_probs[tx_size], r);
+  }
 }
 
 static void setup_segmentation(struct segmentation *seg,
@@ -1041,6 +1105,8 @@ static void setup_loopfilter(struct loopfilter *lf,
                              struct vpx_read_bit_buffer *rb) {
   lf->filter_level = vpx_rb_read_literal(rb, 6);
   lf->sharpness_level = vpx_rb_read_literal(rb, 3);
+  PRINTF("filter_level: %d\n", lf->filter_level);
+  PRINTF("sharpness_level: %d\n", lf->sharpness_level);
 
   // Read in loop filter deltas applied at the MB level based on mode or ref
   // frame.
@@ -1076,6 +1142,10 @@ static void setup_quantization(VP9_COMMON *const cm, MACROBLOCKD *const xd,
   cm->dequant_bit_depth = cm->bit_depth;
   xd->lossless = cm->base_qindex == 0 && cm->y_dc_delta_q == 0 &&
                  cm->uv_dc_delta_q == 0 && cm->uv_ac_delta_q == 0;
+  PRINTF("base_qindex: %d\n", cm->base_qindex);
+  PRINTF("y_dc_delta_q: %d\n", cm->y_dc_delta_q);
+  PRINTF("uv_dc_delta_q: %d\n", cm->uv_dc_delta_q);
+  PRINTF("uv_ac_delta_q: %d\n", cm->uv_ac_delta_q);
 
 #if CONFIG_VP9_HIGHBITDEPTH
   xd->bd = (int)cm->bit_depth;
@@ -1288,10 +1358,12 @@ static void setup_tile_info(VP9_COMMON *cm, struct vpx_read_bit_buffer *rb) {
   if (cm->log2_tile_cols > 6)
     vpx_internal_error(&cm->error, VPX_CODEC_CORRUPT_FRAME,
                        "Invalid number of tile columns");
+  PRINTF("log2_tile_cols: %d\n", cm->log2_tile_cols);
 
   // rows
   cm->log2_tile_rows = vpx_rb_read_bit(rb);
   if (cm->log2_tile_rows) cm->log2_tile_rows += vpx_rb_read_bit(rb);
+  PRINTF("log2_tile_rows: %d\n", cm->log2_tile_rows);
 }
 
 // Reads the next tile returning its size and adjusting '*data' accordingly
@@ -1410,6 +1482,15 @@ static const uint8_t *decode_tiles(VP9Decoder *pbi, const uint8_t *data,
     }
   }
 
+  PRINTF("Partition probs: ");
+  for (int ctx = 0; ctx < 16; ctx++) {
+    const vpx_prob * const probs = tile_data->xd.partition_probs[ctx];
+    for (int j = 0; j < 3; j++) {
+      PRINTF("%d, ", probs[j]);
+    }
+  }
+  PRINTF("\n");
+
   for (tile_row = 0; tile_row < tile_rows; ++tile_row) {
     TileInfo tile;
     vp9_tile_set_row(&tile, cm, tile_row);
@@ -1422,6 +1503,9 @@ static const uint8_t *decode_tiles(VP9Decoder *pbi, const uint8_t *data,
         vp9_tile_set_col(&tile, cm, col);
         vp9_zero(tile_data->xd.left_context);
         vp9_zero(tile_data->xd.left_seg_context);
+        PRINTF("tile_height: %d, tile_width: %d\n",
+          tile.mi_row_end - tile.mi_row_start,
+          tile.mi_col_end - tile.mi_col_start);
         for (mi_col = tile.mi_col_start; mi_col < tile.mi_col_end;
              mi_col += MI_BLOCK_SIZE) {
           decode_partition(tile_data, pbi, mi_row, mi_col, BLOCK_64X64, 4);
@@ -1736,6 +1820,7 @@ static size_t read_uncompressed_header(VP9Decoder *pbi,
                        "Invalid frame marker");
 
   cm->profile = vp9_read_profile(rb);
+  PRINTF("profile: %d\n", cm->profile);
 #if CONFIG_VP9_HIGHBITDEPTH
   if (cm->profile >= MAX_PROFILES)
     vpx_internal_error(&cm->error, VPX_CODEC_UNSUP_BITSTREAM,
@@ -1875,6 +1960,7 @@ static size_t read_uncompressed_header(VP9Decoder *pbi,
   // This flag will be overridden by the call to vp9_setup_past_independence
   // below, forcing the use of context 0 for those frame types.
   cm->frame_context_idx = vpx_rb_read_literal(rb, FRAME_CONTEXTS_LOG2);
+  PRINTF("frame_context_idx: %d\n", cm->frame_context_idx);
 
   // Generate next_ref_frame_map.
   for (mask = pbi->refresh_frame_flags; mask; mask >>= 1) {
@@ -1930,11 +2016,15 @@ static int read_compressed_header(VP9Decoder *pbi, const uint8_t *data,
                        "Failed to allocate bool decoder 0");
 
   cm->tx_mode = xd->lossless ? ONLY_4X4 : read_tx_mode(&r);
+  PRINTF("tx_mode: %d\n", cm->tx_mode);
   if (cm->tx_mode == TX_MODE_SELECT) read_tx_mode_probs(&fc->tx_probs, &r);
   read_coef_probs(fc, cm->tx_mode, &r);
 
-  for (k = 0; k < SKIP_CONTEXTS; ++k)
+  for (k = 0; k < SKIP_CONTEXTS; ++k) {
+	PRINTF("skip_probs[%d]: %d\n", k, fc->skip_probs[k]);
     vp9_diff_update_prob(&r, &fc->skip_probs[k]);
+    PRINTF("skip_probs[%d]: %d\n", k, fc->skip_probs[k]);
+  }
 
   if (!frame_is_intra_only(cm)) {
     nmv_context *const nmvc = &fc->nmvc;
@@ -1944,21 +2034,29 @@ static int read_compressed_header(VP9Decoder *pbi, const uint8_t *data,
 
     if (cm->interp_filter == SWITCHABLE) read_switchable_interp_probs(fc, &r);
 
-    for (i = 0; i < INTRA_INTER_CONTEXTS; i++)
+    for (i = 0; i < INTRA_INTER_CONTEXTS; i++) {
       vp9_diff_update_prob(&r, &fc->intra_inter_prob[i]);
 
+      PRINTF("intra_inter_prob[%d]: %d\n", i, fc->intra_inter_prob[i]);
+    }
+
     cm->reference_mode = read_frame_reference_mode(cm, &r);
+    PRINTF("reference_mode: %d\n", cm->reference_mode);
     if (cm->reference_mode != SINGLE_REFERENCE)
       setup_compound_reference_mode(cm);
     read_frame_reference_mode_probs(cm, &r);
 
     for (j = 0; j < BLOCK_SIZE_GROUPS; j++)
-      for (i = 0; i < INTRA_MODES - 1; ++i)
+      for (i = 0; i < INTRA_MODES - 1; ++i) {
         vp9_diff_update_prob(&r, &fc->y_mode_prob[j][i]);
+        PRINTF("y_mode_prob[%d][%d]: %d\n", j, i, fc->y_mode_prob[j][i]);
+      }
 
     for (j = 0; j < PARTITION_CONTEXTS; ++j)
-      for (i = 0; i < PARTITION_TYPES - 1; ++i)
+      for (i = 0; i < PARTITION_TYPES - 1; ++i) {
         vp9_diff_update_prob(&r, &fc->partition_prob[j][i]);
+        PRINTF("partition_prob[%d][%d]: %d\n", j, i, fc->partition_prob[j][i]);
+      }
 
     read_mv_probs(nmvc, cm->allow_high_precision_mv, &r);
   }
@@ -1996,6 +2094,8 @@ void vp9_read_frame_size(struct vpx_read_bit_buffer *rb, int *width,
                          int *height) {
   *width = vpx_rb_read_literal(rb, 16) + 1;
   *height = vpx_rb_read_literal(rb, 16) + 1;
+  PRINTF("frame_width: %d\n", *width);
+  PRINTF("frame_height: %d\n", *height);
 }
 
 BITSTREAM_PROFILE vp9_read_profile(struct vpx_read_bit_buffer *rb) {
@@ -2019,13 +2119,17 @@ void vp9_decode_frame(VP9Decoder *pbi, const uint8_t *data,
   YV12_BUFFER_CONFIG *const new_fb = get_frame_new_buffer(cm);
   xd->cur_buf = new_fb;
 
+  PRINTF("compressed header size: %zu\n", first_partition_size);
+
   if (!first_partition_size) {
     // showing a frame directly
     *p_data_end = data + (cm->profile <= PROFILE_2 ? 1 : 2);
     return;
   }
 
-  data += vpx_rb_bytes_read(&rb);
+  size_t header_bytes = vpx_rb_bytes_read(&rb);
+  PRINTF("uncompressed header size: %d\n", (int)header_bytes);
+  data += header_bytes;
   if (!read_is_valid(data, first_partition_size, data_end))
     vpx_internal_error(&cm->error, VPX_CODEC_CORRUPT_FRAME,
                        "Truncated packet or corrupt header length");
@@ -2065,6 +2169,7 @@ void vp9_decode_frame(VP9Decoder *pbi, const uint8_t *data,
     pbi->total_tiles = tile_rows * tile_cols;
   }
 
+  pbi->max_threads = 1;
   if (pbi->max_threads > 1 && tile_rows == 1 && tile_cols > 1) {
     // Multi-threaded tile decoder
     *p_data_end = decode_tiles_mt(pbi, data + first_partition_size, data_end);
