@@ -21,8 +21,8 @@ if [[ -z $DEV || ! -d $DIR ]]; then
 	git clone https://github.com/jcodec/jcodec.git $DIR
 fi
 
-SAME_LEVEL="$(cd $DIR; ls -dm *.md | tr -d ' ')"
-DOCS_LEVEL="$(cd $DIR/docs; ls -dm *.md | tr -d ' ')"
+SAME_LEVEL="$(cd $DIR; ls -dm *.md | tr -d '\n ')"
+DOCS_LEVEL="$(cd $DIR/docs; ls -dm *.md | tr -d '\n ')"
 
 for file in `(cd $DIR; find . -name "*.md")`; do
   name=${file%.*}
