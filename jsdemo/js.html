@@ -1,0 +1,53 @@
+<html>
+<head>
+	<script type="text/javascript" src="browserfs.min.js"></script>
+	<script>
+  	  var global = window;
+  	  BrowserFS.install(window);
+	  
+	  function doIt() {
+		console.log('Loading decodertest');
+		
+		var script = document.createElement('script');
+		script.src = 'decodertest-0.2.4-SNAPSHOT.js';
+		document.head.appendChild(script); 
+	  }
+    </script>
+	<script type="text/javascript">
+	  function configureBFS() {
+	    BrowserFS.configure(
+		  {
+		    fs: "MountableFileSystem",
+		    options: {
+		      "/src/test/resources": {
+      	        fs: "XmlHttpRequest",
+                options: { index: "data/index.json" }
+              },
+			  "/tmp": {fs: "InMemory"} 
+	        }
+          },
+	      function(e) {
+	        if (e)
+	          throw e;
+		    doIt();
+	      }
+	    );
+      }
+	  window.onload = function() {
+		  var logRef = document.getElementById('log');
+		  console.log('On load');
+			var oldLog = console.log;
+			console.log = function(text) {
+				oldLog(text);
+				logRef.innerHTML += text + '<br>';
+			};
+			configureBFS();
+      }
+	</script>
+</head>
+<body>
+	jcodec-0.2.4-SNAPSHOT Demo page.
+	<div id="log" style="border: 1px solid black; width: 100%; height: 80%; overflow: scroll; font-family: verdana; text-size: 12pt;">
+	</div>
+</body>
+</html>
