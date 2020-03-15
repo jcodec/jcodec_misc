@@ -14,6 +14,10 @@ error() {
 
 JCODEC_ROOTS=("/tmp/jcodec_${HASHES[0]}_${RANDOM}" "/tmp/jcodec_${HASHES[1]}_${RANDOM}")
 
+get_run_root() {
+  echo $HOME/jcodec_rd/run_$(date +%d%m%Y__%H%M%S)_${RANDOM}
+}
+
 get_enc_command() {
   local index="$1"
 
@@ -31,12 +35,11 @@ get_label() {
   echo "jcodec@${HASHES[$index]}"
 }
 
-#### MAIN
-
-download_dataset
-
-enc_jcodec__build "${JCODEC_ROOTS[0]}" "${HASHES[0]}"
-enc_jcodec__build "${JCODEC_ROOTS[1]}" "${HASHES[1]}"
+# INIT ALL IN PARALLEL
+download_dataset &
+enc_jcodec__build "${JCODEC_ROOTS[0]}" "${HASHES[0]}" &
+enc_jcodec__build "${JCODEC_ROOTS[1]}" "${HASHES[1]}" &
+wait
 
 QP_SEQ="15 4 47"
 EXPIR_ARGS=" "

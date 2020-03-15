@@ -31,18 +31,23 @@ enc_jcodec__get_enc_command() {
   local minq="$4"
   local filepath="$5"
   local filename="$(basename "$5")"
+  local out_file="$6"
+  local log_file="$7"
 
   local jcodec_jar="$(ls $_jcodec_root/target/jcodec-*-SNAPSHOT.jar)"
   local jcodec_command="$JAVA_BIN -cp \"${jcodec_jar}\" org.jcodec.api.transcode.TranscodeMain"
 
-  echo "$jcodec_command $JCODEC_ARGS -f y4m -i \"$DATASET_DIR/$filename\" -vcodec h264 --h264Opts=psnrEn:true,rc:cqp,qp:$minq \"/tmp/${filename}.264\""
+  echo "$jcodec_command $JCODEC_ARGS -f y4m -i \"$DATASET_DIR/$filename\" -vcodec h264 --h264Opts=encDecMismatch:true,psnrEn:true,rc:cqp,qp:$minq \"${out_file}.264\" >> $log_file 2>&1"
 }
 
 enc_jcodec__parse_result() {
   local _jcodec_root="$1"
   local index="$2"
   local log_file="$3"
+  local out_file="$4"
+  local filepath="$5"
+  local filename="$(basename "$filepath")"
 
   local num="[0-9.]*"
-  cat "$log_file" | grep "PSNR " | sed "s/.*AVG:\($num\) Y:\($num\) U:\($num\) V:\($num\) kbps:\($num\).*/\1 \1 \2 \3 \4 \5/g" | tail -1
+  cat "$log_file" | grep "PSNR " | sed "s/.*AVG:\($num\) Y:$num U:$num V:$num kbps:\($num\).*/\1 \2/g" | tail -1
 }

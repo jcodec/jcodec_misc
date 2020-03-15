@@ -43,6 +43,27 @@ cat <<XXX
   #graph {
     cursor: crosshair;
   }
+  div.container {
+    overflow: hidden;
+    margin: 10px 0px 10px 0px;
+  }
+
+  div.metric {
+    float: left;
+    text-align: center;
+    background-color: #eeeeee;
+    padding: 3px;
+    margin-right: 5px;
+    border: 1px solid black;
+    cursor: grab;
+    width: 100px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+
+  div.metric.selected {
+    background-color: lightgrey;
+  }
 </style>
 <script>
 var groupBy = function(xs, key) {
@@ -89,11 +110,16 @@ function Smoother() {
   var VIEWOFF=30;
   var MARGIN=20;
 
+  var DIDX=0;
+
   var prevSelected;
+  var selectedListIndex = 0;
   var curData1;
   var curData2;
 
-  function bind1(data1, data2, el) {
+  var METRICS = ['PSNR (self)', 'PSNR', 'SSIM', 'MSSSIM'];
+
+  function bind1(data1, data2, index, el) {
      el.onclick = function() {
        el.className='selected';
        if (prevSelected)
@@ -102,40 +128,51 @@ function Smoother() {
        plot2(data1, data2);
        curData1 = data1;
        curData2 = data2;
+       selectedListIndex = index;
      }
+  }
+
+  function refresh(metric) {
+    DIDX = metric;
+    root();
   }
 
   function findBot(data, value) {
     return data.reduce(function(p, c) {
-        return c.psnr1 < value && (!p || c.psnr1 > p.psnr1) ? c : p;
+        return parseFloat(c.dist[DIDX]) < value && (!p || parseFloat(c.dist[DIDX]) > parseFloat(p.dist[DIDX])) ? c : p;
       }, null);
   }
   function findTop(data, value) {
     return data.reduce(function(p, c) {
-        return c.psnr1 > value && (!p || c.psnr1 < p.psnr1) ? c : p;
+        return parseFloat(c.dist[DIDX]) > value && (!p || parseFloat(c.dist[DIDX]) < parseFloat(p.dist[DIDX])) ? c : p;
       }, null);
   }
 
-  function interp(data) {
+  function interp(data, r) {
     var interp = [];
-    for (var i = 0; i < 60; i++) {
-      var bot = findBot(data, i);
-      var top = findTop(data, i);
+    var inc = (r.mxDist - r.mnDist) / 60;  // 60 steps
+    for (var i = 0; i < 60; i ++) {
+      var val = r.mnDist + i * inc;
+      var bot = findBot(data, val);
+      var top = findTop(data, val);
       if (bot && top) {
-        var botBps  = parseFloat(bot.bps);
-        var botPsnr = parseFloat(bot.psnr1);
-        var topBps  = parseFloat(top.bps);
-        var topPsnr = parseFloat(top.psnr1);
+        var botBps  = parseFloat(bot.rate[DIDX]);
+        var botPsnr = parseFloat(bot.dist[DIDX]);
+        var topBps  = parseFloat(top.rate[DIDX]);
+        var topPsnr = parseFloat(top.dist[DIDX]);
 
-        interp[i] = botBps + ((i - botPsnr) * (topBps - botBps) / (topPsnr - botPsnr));
+        interp[i] = botBps + ((val - botPsnr) * (topBps - botBps) / (topPsnr - botPsnr));
+      } else {
+        interp[i] = null;
       }
     }
     return interp;
   }
 
   function calcSeparation(data1, data2) {
-     var interp1 = interp(data1);
-     var interp2 = interp(data2);
+     var r = findMaxRanges(data1, data2);
+     var interp1 = interp(data1, r);
+     var interp2 = interp(data2, r);
      var sum = 0;
      var count = 0;
      for (var i = 0; i < 60; i++) {
@@ -154,18 +191,18 @@ function Smoother() {
   }
 
   function findRanges(data) {
-    var r = {mnPsnr: null, mxPsnr: null, mnBps: null, mxBps: null};
+    var r = {mnDist: null, mxDist: null, mnRate: null, mxRate: null};
     data.forEach(function(e) {
-      var psnr = parseFloat(e.psnr1);
-      var bps  = parseFloat(e.bps);
-      if (!r.mnPsnr || psnr < r.mnPsnr)
-        r.mnPsnr = psnr;
-      if (!r.mxPsnr || psnr > r.mxPsnr)
-        r.mxPsnr = psnr;
-      if (!r.mnBps  || bps  < r.mnBps)
-        r.mnBps = bps;
-      if (!r.mxBps  || bps  > r.mxBps)
-        r.mxBps = bps;
+      var psnr = parseFloat(e.dist[DIDX]);
+      var bps  = parseFloat(e.rate[DIDX]);
+      if (!r.mnDist || psnr < r.mnDist)
+        r.mnDist = psnr;
+      if (!r.mxDist || psnr > r.mxDist)
+        r.mxDist = psnr;
+      if (!r.mnRate  || bps  < r.mnRate)
+        r.mnRate = bps;
+      if (!r.mxRate  || bps  > r.mxRate)
+        r.mxRate = bps;
     });
     return r;
   }
@@ -174,10 +211,10 @@ function Smoother() {
     var r1 = findRanges(data1);
     var r2 = findRanges(data2);
     var r = {
-      mnPsnr: Math.min(r1.mnPsnr, r2.mnPsnr), 
-      mxPsnr: Math.max(r1.mxPsnr, r2.mxPsnr), 
-      mnBps: Math.min(r1.mnBps, r2.mnBps), 
-      mxBps: Math.max(r1.mxBps, r2.mxBps)};
+      mnDist: Math.min(r1.mnDist, r2.mnDist), 
+      mxDist: Math.max(r1.mxDist, r2.mxDist), 
+      mnRate: Math.min(r1.mnRate, r2.mnRate), 
+      mxRate: Math.max(r1.mxRate, r2.mxRate)};
     return r;
   }
 
@@ -190,9 +227,9 @@ function Smoother() {
     var r = findMaxRanges(data1, data2);
 
     ctx.font = "14px Arial";
-    ctx.fillText(fmtNum(r.mnPsnr) + 'db / ' + fmtNum(r.mnBps) + 'bps', 0, graph.height - 10);
-    ctx.fillText(fmtNum(r.mxBps)  + 'bps', graph.width - 100, graph.height - 10);
-    ctx.fillText(fmtNum(r.mxPsnr) + 'db', 0, 20);
+    ctx.fillText(r.mnDist + ' / ' + fmtNum(r.mnRate), 0, graph.height - 10);
+    ctx.fillText(fmtNum(r.mxRate), graph.width - 100, graph.height - 10);
+    ctx.fillText(r.mxDist, 0, 20);
 
     plotPoints(graph, ctx, data1, r, '#ffaaaa');
     plotPoints(graph, ctx, data2, r, '#aaaaff');
@@ -207,16 +244,16 @@ function Smoother() {
     var hgt   = bottm - top;
 
     data.sort(function(a,b) {
-      return a.bps - b.bps;
+      return parseFloat(a.rate[DIDX]) - parseFloat(b.rate[DIDX]);
     });
 
-    var rx = wdt / (r.mxBps  - r.mnBps);
-    var ry = hgt / (r.mxPsnr - r.mnPsnr);
+    var rx = wdt / (r.mxRate  - r.mnRate);
+    var ry = hgt / (r.mxDist - r.mnDist);
 
     ctx.strokeStyle = '#eeeeee'
     data.forEach(function(item, idx) {
-      var x = lft    + (item.bps   - r.mnBps)  * rx;
-      var y = bottm - (item.psnr1 - r.mnPsnr) * ry;
+      var x = lft   + (parseFloat(item.rate[DIDX])  - r.mnRate)  * rx;
+      var y = bottm - (parseFloat(item.dist[DIDX]) - r.mnDist) * ry;
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, graph.height);
@@ -230,8 +267,8 @@ function Smoother() {
     ctx.strokeStyle = color;
     ctx.beginPath();
     data.forEach(function(item, idx) {
-      var x = lft    + (item.bps   - r.mnBps)  * rx;
-      var y = bottm - (item.psnr1 - r.mnPsnr) * ry;
+      var x = lft   + (parseFloat(item.rate[DIDX])  - r.mnRate)  * rx;
+      var y = bottm - (parseFloat(item.dist[DIDX]) - r.mnDist) * ry;
       if (idx == 0)
         ctx.moveTo(x, y);
       else
@@ -240,8 +277,8 @@ function Smoother() {
     ctx.stroke();
 
     data.forEach(function(item) {
-      var x = lft    + (item.bps   - r.mnBps)  * rx;
-      var y = bottm - (item.psnr1 - r.mnPsnr) * ry;
+      var x = lft   + (parseFloat(item.rate[DIDX])  - r.mnRate)  * rx;
+      var y = bottm - (parseFloat(item.dist[DIDX]) - r.mnDist) * ry;
       ctx.beginPath();
       ctx.arc(x, y, 2, 0, 2 * Math.PI);
       ctx.stroke();
@@ -282,17 +319,17 @@ function Smoother() {
     var offy = graph.height/2;
 
     data.sort(function(a,b) {
-      return a.bps - b.bps;
+      return parseFloat(a.rate[DIDX]) - parseFloat(b.rate[DIDX]);
     });
 
-    var rx = wdt / (r.mxBps  - r.mnBps);
-    var ry = hgt / (r.mxPsnr - r.mnPsnr);
+    var rx = wdt / (r.mxRate  - r.mnRate);
+    var ry = hgt / (r.mxDist - r.mnDist);
 
     ctx.strokeStyle = '#eeeeee'
     data.forEach(function(item, idx) {
-      var x = lft   + (item.bps   - r.mnBps)  * rx;
+      var x = lft   + (parseFloat(item.rate[DIDX])  - r.mnRate)  * rx;
       var sx = SCALE*(x-cx)+offx;
-      var y = bottm - (item.psnr1 - r.mnPsnr) * ry;
+      var y = bottm - (parseFloat(item.dist[DIDX]) - r.mnDist) * ry;
       var sy = SCALE*(y-cy)+offy;
       ctx.beginPath();
       ctx.moveTo(sx, 0);
@@ -307,9 +344,9 @@ function Smoother() {
     ctx.strokeStyle = color;
     ctx.beginPath();
     data.forEach(function(item, idx) {
-      var x = lft   + (item.bps   - r.mnBps)  * rx;
+      var x = lft   + (parseFloat(item.rate[DIDX])  - r.mnRate)  * rx;
       var sx = SCALE*(x-cx)+offx;
-      var y = bottm - (item.psnr1 - r.mnPsnr) * ry;
+      var y = bottm - (parseFloat(item.dist[DIDX]) - r.mnDist) * ry;
       var sy = SCALE*(y-cy)+offy;
       if (idx == 0)
         ctx.moveTo(sx, sy);
@@ -318,15 +355,15 @@ function Smoother() {
     });
     ctx.stroke();
     data.forEach(function(item) {
-      var x = lft   + (item.bps   - r.mnBps)  * rx;
-      var y = bottm - (item.psnr1 - r.mnPsnr) * ry;
+      var x = lft   + (parseFloat(item.rate[DIDX])  - r.mnRate)  * rx;
+      var y = bottm - (parseFloat(item.dist[DIDX]) - r.mnDist) * ry;
       ctx.beginPath();
       ctx.arc(SCALE*(x-cx)+offx, SCALE*(y-cy)+offy, 4, 0, 2 * Math.PI);
       ctx.stroke();
     });
 
-    var cbps  = Math.round((cx - lft)   / rx + r.mnBps);
-    var cpsnr = rnd1d     ((bottm - cy) / ry + r.mnPsnr);
+    var cbps  = Math.round((cx - lft)   / rx + r.mnRate);
+    var cpsnr = rnd1d     ((bottm - cy) / ry + r.mnDist);
 
     if (ind == 0) {
       ctx.font = "14px Arial";
@@ -360,16 +397,21 @@ function Smoother() {
       str += '<tr class="bottomline"><td>Average</td><td class="percent">' + (Math.round((sum/count)*100)/100)  + '%</td></tr>';
     str += '</table>';
 
+    str += '<div class="container">';
+    METRICS.forEach(function(metric, idx) {
+      str += '<div class="metric ' + (DIDX == idx ? 'selected' : '') + '" onClick="refresh(' + idx + ');">' + metric + '</div>';
+    });
+    str += '</div>';
     str += '<div style="color: #ffaaaa;">A: ' + data1.encoder + data1.extraArgs + '</div>';
     str += '<div style="color: #aaaaff;">B: ' + data2.encoder + data2.extraArgs + '</div>';
     content.innerHTML = str;
-    count = 0;
+    var index = 0;
     for (key in byFileName1) {
        var el = document.getElementById('clk_' + key);
        if (el) {
-         bind1(byFileName1[key], byFileName2[key], el);
-         if (!count) el.onclick();
-         ++count;
+         bind1(byFileName1[key], byFileName2[key], index, el);
+         if (index == selectedListIndex) el.onclick();
+         ++index;
        }
     }
   

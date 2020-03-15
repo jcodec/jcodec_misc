@@ -7,6 +7,8 @@ fi
 
 PAD="                                                                      "
 
+RUN_ROOT="$(get_run_root)"
+
 encode_one_qp() {
     local filepath="$1"
     local filename="$(basename "$filepath")"
@@ -15,14 +17,15 @@ encode_one_qp() {
     local index="$4"
 
     local qualifier="${filename}_${minq}_${index}_${extra_args//[^[:alnum:]]/}"
-    local script_name="/tmp/${qualifier}.sh"
-    local log_file="/tmp/${qualifier}.log"
+    local script_name="${RUN_ROOT}/${qualifier}.sh"
+    local log_file="${RUN_ROOT}/${qualifier}.log"
+    local out_file="${RUN_ROOT}/${qualifier}"
     local msg="+ $filename @qp $minq"
     local log="${msg}${PAD:${#msg}}"
-    local command="$(get_enc_command "$index" "$extra_args" "$minq" "$filepath")"
+    local command="$(get_enc_command "$index" "$extra_args" "$minq" "$filepath" "$out_file" "$log_file")"
 
 cat <<XXX > $script_name
-    $command > $log_file 2>&1
+    $command
     echo -e "\r$log"
 XXX
 
@@ -31,14 +34,32 @@ XXX
 }
 
 process_one_qp() {
+    local filepath="$1"
     local filename="$(basename $1)"
     local minq="$2"
     local extra_args="$3"
     local index="$4"
-    local log_file="/tmp/${filename}_${minq}_${index}_${extra_args//[^[:alnum:]]/}.log"
+    local log_file="${RUN_ROOT}/${filename}_${minq}_${index}_${extra_args//[^[:alnum:]]/}.log"
+    local out_file="${RUN_ROOT}/${filename}_${minq}_${index}_${extra_args//[^[:alnum:]]/}"
 
-    local vals=( $(parse_result "$index" "$log_file") )
-    echo "{\"filename\":\"${filename%.*}\",\"minq\":\"$minq\",\"psnr1\":\"${vals[0]}\",\"psnr2\":\"${vals[1]}\",\"y_psnr\":\"${vals[2]}\",\"u_psnr\":\"${vals[3]}\",\"v_psnr\":\"${vals[4]}\",\"bps\":\"${vals[5]}\",\"time\":\"${vals[7]}\"}," >> $out
+    local vals=( $(parse_result "$index" "$log_file" "$out_file" "$filepath") )
+
+    local str="{\"filename\":\"${filename%.*}\",\"minq\":\"$minq\",\"dist\":["
+    for (( n = 0; n < ${#vals[@]}; n = n + 2)) do
+      str="${str}\"${vals[$n]}\"";
+      if [[ $n < $((${#vals[@]} - 2)) ]]; then
+        str="${str},"
+      fi
+    done
+    str="${str}],\"rate\":["
+    for (( n = 0; n < ${#vals[@]}; n = n + 2)) do
+      str="${str}\"${vals[$n+1]}\""
+      if [[ $n < $((${#vals[@]} - 2)) ]]; then
+        str="${str},"
+      fi
+    done
+    str="${str}]},"
+    echo "${str}" >> $out
 }
 
 encode_one_stream() {
@@ -99,6 +120,9 @@ process_one_set() {
   echo "]" >> $out
   echo "}" >> $out
 }
+
+echo "Running in $RUN_ROOT"
+mkdir -p "$RUN_ROOT"
 
 OUT1="data_${RANDOM}.json"
 OUT2="data_${RANDOM}.json"
