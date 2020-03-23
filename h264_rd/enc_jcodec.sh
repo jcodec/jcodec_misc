@@ -37,7 +37,7 @@ enc_jcodec__get_enc_command() {
   local jcodec_jar="$(ls $_jcodec_root/target/jcodec-*-SNAPSHOT.jar)"
   local jcodec_command="$JAVA_BIN -cp \"${jcodec_jar}\" org.jcodec.api.transcode.TranscodeMain"
 
-  echo "$jcodec_command $JCODEC_ARGS -f y4m -i \"$DATASET_DIR/$filename\" -vcodec h264 --h264Opts=encDecMismatch:true,psnrEn:true,rc:cqp,qp:$minq \"${out_file}.264\" >> $log_file 2>&1"
+  echo "$jcodec_command $JCODEC_ARGS -f y4m -i \"$DATASET_DIR/$filename\" -vcodec h264 --h264Opts=encDecMismatch:true,psnrEn:true,enableRdo:true,rc:cqp,qp:$minq \"${out_file}.264\" >> $log_file 2>&1"
 }
 
 enc_jcodec__parse_result() {
