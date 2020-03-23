@@ -73,8 +73,8 @@ var groupBy = function(xs, key) {
   }, {});
 };
 
-function rnd1d(val) {
-  return Math.round(val*10)/10;
+function rnd2d(val) {
+  return Math.round(val*100)/100;
 }
 
 function fmtNum(x) {
@@ -117,7 +117,7 @@ function Smoother() {
   var curData1;
   var curData2;
 
-  var METRICS = ['PSNR (self)', 'PSNR', 'SSIM', 'MSSSIM'];
+  var METRICS = ['PSNR (self)', 'PSNR', 'SSIM'];
 
   function bind1(data1, data2, index, el) {
      el.onclick = function() {
@@ -363,12 +363,12 @@ function Smoother() {
     });
 
     var cbps  = Math.round((cx - lft)   / rx + r.mnRate);
-    var cpsnr = rnd1d     ((bottm - cy) / ry + r.mnDist);
+    var cpsnr = rnd2d     ((bottm - cy) / ry + r.mnDist);
 
     if (ind == 0) {
       ctx.font = "14px Arial";
-      ctx.fillText(fmtNum(cpsnr) + 'db', 10, graph.height - 10);
-      ctx.fillText(fmtNum(cbps) + 'bps', graph.width/2, graph.height - 10);
+      ctx.fillText(fmtNum(cpsnr), 10, graph.height - 10);
+      ctx.fillText(fmtNum(cbps), graph.width/2, graph.height - 10);
     }
   }
 
