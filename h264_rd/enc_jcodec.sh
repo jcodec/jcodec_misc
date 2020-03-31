@@ -27,12 +27,13 @@ enc_jcodec__build() {
 enc_jcodec__get_enc_command() {
   local _jcodec_root="$1"
   local index="$2"
-  local extra_args="$3"
-  local minq="$4"
-  local filepath="$5"
-  local filename="$(basename "$5")"
-  local out_file="$6"
-  local log_file="$7"
+  local job="$3"
+  local extra_args="$4"
+  local minq="$5"
+  local filepath="$6"
+  local filename="$(basename "$6")"
+  local out_file="$7"
+  local log_file="$8"
 
   local jcodec_jar="$(ls $_jcodec_root/target/jcodec-*-SNAPSHOT.jar)"
   local jcodec_command="$JAVA_BIN -cp \"${jcodec_jar}\" org.jcodec.api.transcode.TranscodeMain"
@@ -43,9 +44,10 @@ enc_jcodec__get_enc_command() {
 enc_jcodec__parse_result() {
   local _jcodec_root="$1"
   local index="$2"
-  local log_file="$3"
-  local out_file="$4"
-  local filepath="$5"
+  local job="$3"
+  local log_file="$4"
+  local out_file="$5"
+  local filepath="$6"
   local filename="$(basename "$filepath")"
 
   local num="[0-9.]*"

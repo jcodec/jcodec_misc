@@ -12,6 +12,7 @@ enc_x264__build() {
 
 enc_x264__get_enc_command() {
   local index="$1"
+  local job="$2"
   local extra_args="$2"
   local minq="$3"
   local filepath="$4"
@@ -24,6 +25,7 @@ enc_x264__get_enc_command() {
 
 enc_x264__parse_result() {
   local index="$1"
+  local job="$2"
   local log_file="$2"
   local out_file="$3"
   local filepath="$4"
