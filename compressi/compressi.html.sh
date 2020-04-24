@@ -402,8 +402,8 @@ function Smoother() {
       str += '<div class="metric ' + (DIDX == idx ? 'selected' : '') + '" onClick="refresh(' + idx + ');">' + metric + '</div>';
     });
     str += '</div>';
-    str += '<div style="color: #ffaaaa;">A: ' + data1.encoder + data1.extraArgs + '</div>';
-    str += '<div style="color: #aaaaff;">B: ' + data2.encoder + data2.extraArgs + '</div>';
+    str += '<div style="color: #ffaaaa;">A: ' + data1.encoder + '</div>';
+    str += '<div style="color: #aaaaff;">B: ' + data2.encoder + '</div>';
     content.innerHTML = str;
     var index = 0;
     for (key in byFileName1) {

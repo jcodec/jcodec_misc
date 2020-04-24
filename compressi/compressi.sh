@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [[ -z $EXPIR_ARGS || -z $DATASET || -z $REF_ARGS ]]; then
-  echo "FATAL: EXPIR_ARGS and DATASET and REF_ARGS vars need to be set"
+if [[ -z $DATASET ]]; then
+  echo "FATAL: DATASET need to be set"
   exit -1
 fi
 
@@ -13,17 +13,16 @@ encode_one_qp() {
     local filepath="$1"
     local filename="$(basename "$filepath")"
     local minq="$2"
-    local extra_args="$3"
-    local index="$4"
-    local job="$5"
+    local index="$3"
+    local job="$4"
 
-    local qualifier="${filename}_${minq}_${index}_${extra_args//[^[:alnum:]]/}"
+    local qualifier="${filename}_${minq}_${index}"
     local script_name="${RUN_ROOT}/${qualifier}.sh"
     local log_file="${RUN_ROOT}/${qualifier}.log"
     local out_file="${RUN_ROOT}/${qualifier}"
     local msg="+ $filename @qp $minq"
     local log="${msg}${PAD:${#msg}}"
-    local command="$(get_enc_command "$index" "$job" "$extra_args" "$minq" "$filepath" "$out_file" "$log_file")"
+    local command="$(get_enc_command "$index" "$job" "$minq" "$filepath" "$out_file" "$log_file")"
 
 cat <<XXX > $script_name
     $command
@@ -38,11 +37,10 @@ process_one_qp() {
     local filepath="$1"
     local filename="$(basename $1)"
     local minq="$2"
-    local extra_args="$3"
-    local index="$4"
-    local job="$5"
-    local log_file="${RUN_ROOT}/${filename}_${minq}_${index}_${extra_args//[^[:alnum:]]/}.log"
-    local out_file="${RUN_ROOT}/${filename}_${minq}_${index}_${extra_args//[^[:alnum:]]/}"
+    local index="$3"
+    local job="$4"
+    local out_file="${RUN_ROOT}/${filename}_${minq}_${index}"
+    local log_file="${out_file}.log"
 
     local vals=( $(parse_result "$index" "$job" "$log_file" "$out_file" "$filepath") )
 
@@ -65,25 +63,23 @@ process_one_qp() {
 }
 
 encode_one_set() {
-  local extra_args=$1
-  local out="$2"
-  local index="$3"
+  local out="$1"
+  local index="$2"
   local job=0
 
   # Encoding
   local list="$(get_source_list)"
   for file in $list; do
     for minq in `seq $QP_SEQ`; do
-      encode_one_qp "$file" "$minq" "$extra_args" "$index" "$job"
+      encode_one_qp "$file" "$minq" "$index" "$job"
       job=$(($job+1))
     done
   done
 }
 
 process_one_set() {
-  local extra_args="$1"
-  local out="$2"
-  local index="$3"
+  local out="$1"
+  local index="$2"
   local job=0
 
   # Output
@@ -92,7 +88,6 @@ process_one_set() {
   echo "{" >> $out
   echo "\"encoder\": \"$(get_label $index)\"," >> $out
   echo "\"encoderArgs\": \"$encoder_args\"," >> $out
-  echo "\"extraArgs\": \"$extra_args\"," >> $out
   echo "\"maxFrames\": \"$MAX_FRAMES\"," >> $out
   echo "\"profile\": \"$PROFILE\"," >> $out
   echo "\"points\": [" >> $out
@@ -100,7 +95,7 @@ process_one_set() {
   local list="$(get_source_list)"
   for file in $list; do
     for minq in `seq $QP_SEQ`; do
-      process_one_qp "$file" "$minq" "$extra_args" "$index" "$job"
+      process_one_qp "$file" "$minq" "$index" "$job"
       job=$(($job+1))
     done
   done
@@ -121,7 +116,7 @@ HTML="comp_${RANDOM}.html"
 if [[ -z "$REF_ARGS" ]]; then
   REF_ARGS="-q"
 fi
-commands=$(encode_one_set "$EXPIR_ARGS" "$OUT1" "0"; encode_one_set "$REF_ARGS" "$OUT2" "1" )
+commands=$(encode_one_set "$OUT1" "0"; encode_one_set "$OUT2" "1" )
 
 PAR_ARGS=""
 if [[ ! -z $N_JOBS ]]; then
@@ -131,6 +126,6 @@ fi
 
 echo "$commands" | parallel $PAR_ARGS --eta bash {}
 
-process_one_set "$EXPIR_ARGS" "$OUT1" "0"; process_one_set "$REF_ARGS" "$OUT2" "1"
+process_one_set "$OUT1" "0"; process_one_set "$OUT2" "1"
 
 bash $COMPRESSI_BASE/compressi.html.sh "$(cat $OUT1)" "$(cat $OUT2)" > "$HTML"
